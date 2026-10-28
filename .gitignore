@@ -1,0 +1,21 @@
+# Raw AIS data (too large for git)
+data/raw/*
+!data/raw/.gitkeep
+*.parquet
+
+# Optional external layers (download yourself, see data/external/README.md)
+data/external/dk.json
+data/external/cable-geo.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
