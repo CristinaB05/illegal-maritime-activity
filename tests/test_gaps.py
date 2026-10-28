@@ -53,6 +53,15 @@ def test_flag_dark_events_marks_off_and_on():
     assert flagged["Status"].tolist() == ["off", "on", "Regular"]
 
 
+def test_message_between_two_gaps_is_on_and_off():
+    # The 04:00 message ends the first gap and starts the second one.
+    track = make_track(273000001, [
+        "2024-01-01 00:00", "2024-01-01 04:00", "2024-01-01 08:00",
+    ])
+    flagged = flag_dark_events(track, detect_dark_periods(track))
+    assert flagged["Status"].tolist() == ["off", "on/off", "on"]
+
+
 def test_haversine_one_degree_of_latitude():
     assert haversine_km(55, 12, 56, 12) == pytest.approx(111.2, abs=0.1)
 

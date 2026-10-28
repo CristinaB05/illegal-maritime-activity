@@ -90,11 +90,12 @@ def detect_dark_periods(
 
 
 def flag_dark_events(df: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
-    """Label every message as ``Regular``, ``off`` or ``on``.
+    """Label every message as ``Regular``, ``off``, ``on`` or ``on/off``.
 
     Adds the boolean columns ``ais_off`` (last message before a gap) and
     ``ais_on`` (first message after a gap), plus a ``Status`` column used to
-    highlight dark moments when plotting full tracks.
+    highlight dark moments when plotting full tracks. A message that ends one
+    dark period and starts the next is labelled ``on/off``.
     """
     df = df.sort_values(["MMSI", TIMESTAMP]).copy()
     df["ais_on"] = df.index.isin(set(events["on_row"]))
@@ -102,7 +103,9 @@ def flag_dark_events(df: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
     df["ais_off"] = (df.groupby("MMSI")["ais_on"]
                      .shift(-1, fill_value=False).astype(bool))
 
-    # Same rule as the sprint notebook: "off" is written last, so it wins.
-    df["Status"] = np.select([df["ais_off"], df["ais_on"]], ["off", "on"],
-                             default="Regular")
+    df["Status"] = np.select(
+        [df["ais_on"] & df["ais_off"], df["ais_on"], df["ais_off"]],
+        ["on/off", "on", "off"],
+        default="Regular",
+    )
     return df
