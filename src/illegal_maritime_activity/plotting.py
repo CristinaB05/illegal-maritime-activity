@@ -16,7 +16,7 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from shapely.geometry import LineString, Point
 
-from .preprocessing import valid_position
+from .preprocessing import TIMESTAMP, valid_position
 
 # Resolved from this file so the paths work from any working directory.
 EXTERNAL_DIR = Path(__file__).resolve().parents[2] / "data" / "external"
@@ -167,4 +167,63 @@ def plot_gap_durations(events: pd.DataFrame, title: str | None = None):
     ax.set_axisbelow(True)
     ax.set_title(title or "How long vessels stayed dark", loc="left")
     fig.tight_layout()
+    return fig, ax
+
+
+# --------------------------------------------------------------------------
+# Sprint maps: infrastructure and fishing activity in Danish waters
+# --------------------------------------------------------------------------
+
+# Map extent used during the sprint, covering Danish waters (EPSG:25832).
+DK_BOUNDS = (2.6e5, 6.0e6, 11.0e5, 6.45e6)
+
+
+def plot_cables_in_danish_waters(waters: gpd.GeoDataFrame,
+                                 cables: gpd.GeoDataFrame,
+                                 title: str | None = None):
+    """Map the submarine cables that cross Danish waters.
+
+    Each cable gets its own colour so that individual cables can be told
+    apart where they run close together. Requires both optional layers
+    (see :func:`load_basemaps`).
+    """
+    fig, ax = _map_axes(DK_BOUNDS, waters)
+    cables.plot(ax=ax, column="id_left", cmap="tab20", linewidth=0.8)
+    _finish_map(ax, title or f"Submarine cables in Danish waters ({len(cables)})")
+    return fig, ax
+
+
+def plot_positions_by_flag(df: pd.DataFrame, waters=None, cables=None,
+                           month: int | None = None, title: str | None = None):
+    """Map fishing-vessel positions coloured by flag group.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        AIS messages with a ``country`` column from
+        :func:`illegal_maritime_activity.preprocessing.classify_mmsi`.
+    waters, cables : geopandas.GeoDataFrame, optional
+        Extra layers from :func:`load_basemaps`.
+    month : int, optional
+        Restrict the map to one calendar month (1-12), as in the sprint's
+        monthly maps.
+    """
+    if month is not None:
+        df = df[df[TIMESTAMP].dt.month == month]
+    points = to_points(df[valid_position(df)])
+
+    fig, ax = _map_axes(DK_BOUNDS, waters, cables)
+    handles = []
+    for flag, color in FLAG_COLORS.items():   # fixed order and colour per flag
+        subset = points[points["country"] == flag]
+        if subset.empty:
+            continue
+        subset.plot(ax=ax, color=color, markersize=1)
+        handles.append(Line2D([], [], marker="o", ls="", color=color,
+                              label=f"{flag} ({subset['MMSI'].nunique()} vessels)"))
+    ax.legend(handles=handles, title="Flag", loc="lower right",
+              framealpha=0.9, edgecolor="none")
+
+    period = pd.Timestamp(2024, month, 1).strftime("%B") if month else "2024"
+    _finish_map(ax, title or f"Fishing vessel positions by flag, {period}")
     return fig, ax
