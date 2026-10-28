@@ -62,6 +62,14 @@ def test_message_between_two_gaps_is_on_and_off():
     assert flagged["Status"].tolist() == ["off", "on/off", "on"]
 
 
+def test_unavailable_position_gives_no_distance():
+    track = make_track(273000001, ["2024-01-01 00:00", "2024-01-01 04:00"])
+    track.loc[1, "Latitude"] = 91.0  # AIS "position not available"
+    events = detect_dark_periods(track)
+    assert len(events) == 1  # the gap itself is still detected
+    assert events[["distance_km", "implied_speed_kn"]].isna().all(axis=None)
+
+
 def test_haversine_one_degree_of_latitude():
     assert haversine_km(55, 12, 56, 12) == pytest.approx(111.2, abs=0.1)
 

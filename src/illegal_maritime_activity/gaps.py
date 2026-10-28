@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .preprocessing import TIMESTAMP
+from .preprocessing import TIMESTAMP, valid_position
 
 EARTH_RADIUS_KM = 6371.0088
 KM_PER_NAUTICAL_MILE = 1.852
@@ -53,6 +53,7 @@ def detect_dark_periods(
         position just before (``off_*``) and just after (``on_*``) the gap,
         the gap length in hours, the straight-line distance between the two
         positions and the average speed in knots needed to cover it.
+        Distance and speed are NaN when either position is unavailable.
         ``on_row`` is the raw-data index of the message that ends the gap.
     """
     # Compare each message with the previous message of the same vessel.
@@ -78,9 +79,12 @@ def detect_dark_periods(
     })
 
     # How far the vessel moved while dark, and how fast it would have had to
-    # travel in a straight line to get there.
-    events["distance_km"] = haversine_km(events["off_lat"], events["off_lon"],
-                                         events["on_lat"], events["on_lon"])
+    # travel in a straight line to get there. Skipped when either message
+    # carries the AIS "position not available" value.
+    both_valid = valid_position(on) & valid_position(off)
+    distance = haversine_km(events["off_lat"], events["off_lon"],
+                            events["on_lat"], events["on_lon"])
+    events["distance_km"] = distance.where(both_valid)
     events["implied_speed_kn"] = (
         events["distance_km"] / KM_PER_NAUTICAL_MILE / events["gap_hours"]
     )
